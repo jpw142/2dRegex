@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use image::io::Reader;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
 pub struct Color {
     r: u8,
     g: u8,

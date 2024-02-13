@@ -2,23 +2,21 @@
 use crate::picture::*;
 use crate::point::*;
 
-use std::fs;
-
+use std::collections::HashMap;
 
 /// The different transitions between states that are possible
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Transition {
     MoveRelative(usize, Point), // Moves relative to a state
-    Consume(usize), // Move relative to a point from that state then consume
+    Consume(Color), // Move relative to a point from that state then consuME
     Epsilon, // Change states for free
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ColorType {
-    Input(usize),
-    Output(usize),
+    Input,
+    Output,
     Function,
-    None
 }
 
 /// An abstract object that contains transitions to other indexes in its parent structure FSM
@@ -40,9 +38,7 @@ impl State {
 /// The base struct for creating a finite state machine, storing it, and executing it
 pub struct FSM {
     pub states: Vec<State>,
-    pub func_color: Color,
-    pub input_color: Vec<(Color, usize)>,
-    pub output_color: Vec<(Color, usize)>,
+    pub colors: HashMap<Color, ColorType>,
 }
 
 impl FSM {
@@ -68,6 +64,9 @@ impl FSM {
             }
         }
 
+        let mut colors = HashMap::new();
+        colors.insert(func_color, ColorType::Function);
+
         if head_pos.x == -1 || head_pos.y == -1 {
             panic!("No function color found in FSM definition");
         }
@@ -76,14 +75,11 @@ impl FSM {
             states: vec![State::new()],
             head_pos,
             p,
-            func_color,
-            input_color: vec![],
-            output_color: vec![]
+            colors,
         };
     }
 
-    pub fn doer(self, mut p: Picture) -> FSMDoer {
-        todo!()
+    pub fn identify(mut p: Picture) -> Option<Hashmap<Color, Vec<Color>>> {
     }
 
     pub fn print(&self) {
@@ -94,13 +90,10 @@ impl FSM {
 }
 
 pub struct FSMBuilder {
-    states: Vec<State>,
-    p: Picture,
-    head_pos: Point,
-    func_color: Color,
-    input_color: Vec<(Color, usize)>,
-    output_color: Vec<(Color, usize)>,
-
+    pub states: Vec<State>,
+    pub colors: HashMap<Color, ColorType>,
+    pub head_pos: Point,
+    pub p: Picture,
 }
 
 impl FSMBuilder {
@@ -108,8 +101,8 @@ impl FSMBuilder {
     /// Adds another empty state afterwards
     fn consume(&mut self, c: Color) {
         let len = self.states.len();
-        let c_type = self.color(c).unwrap();
-        self.states[len - 1].t.push((len, Transition::Consume(c_type)));
+        let color = self.color(c).unwrap().0.clone();
+        self.states[len - 1].t.push((len, Transition::Consume(color)));
         self.states.push(State::new());
     }
 
@@ -126,31 +119,18 @@ impl FSMBuilder {
     /// Adds input color to look for
     /// Internally all colors have a usize that identifies it
     pub fn add_input(&mut self, c: Color) {
-        self.input_color.push((c, self.input_color.len()));
+        self.colors.insert(c, ColorType::Input);
     }
 
     /// Adds output color to look for
     /// Internally all colors have a usize that identifies it
     pub fn add_output(&mut self, c: Color) {
-        self.output_color.push((c, self.output_color.len()));
+        self.colors.insert(c, ColorType::Output);
     }
     
     /// Identifies if a selected color is significant to the relative finite state machine
-    fn color(&self, c: Color) -> Option<usize> {
-        if self.func_color == c {
-            return Some(0);
-        }
-        for i in self.input_color.iter() {
-            if c == i.0 {
-                return Some(i.1)
-            }
-        }
-        for o in self.output_color.iter() {
-            if c == o.0 {
-                return Some(self.input_color.len() + o.1);
-            }
-        }
-        return None;
+    fn color(&self, c: Color) -> Option<(&Color, &ColorType)> {
+        return self.colors.get_key_value(&c);
     }
 
     /// Recursively build a FSM from the FSM Builder
@@ -158,9 +138,7 @@ impl FSMBuilder {
         self.recurse();
         FSM {
             states: self.states.clone(),
-            func_color: self.func_color,
-            input_color: self.input_color.clone(),
-            output_color: self.output_color.clone(),
+            colors: self.colors.clone(),
         }
     }
 
@@ -193,22 +171,12 @@ impl FSMBuilder {
     }
 }
 
-/// Pretty self explanatory from the name
-/// Does the FSM with all the silly little variables it needs and then returns a result
-pub struct FSMDoer {
-    // All stares have points associated with them
-    states: Vec<(State, Point)>,
-    // Index into what state is what
-    i: usize,
-    p: Picture,
-    head_pos: Point,
-    collectors: Vec<(Color, usize)>
-}
 
 #[cfg(test)]
 mod tests {
     use crate::picture;
     use super::*;
+    use std::fs;
     
     #[test]
     /// Checks that all of the fsm definition tests compile into an fsm regardless of correctness
