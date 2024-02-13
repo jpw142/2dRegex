@@ -79,7 +79,33 @@ impl FSM {
         };
     }
 
-    pub fn identify(mut p: Picture) -> Option<Hashmap<Color, Vec<Color>>> {
+    pub fn identify(&self, mut p: Picture) -> Option<HashMap<Color, Vec<Color>>> {
+        let mut collect: HashMap<Color, Vec<Color>> = HashMap::new();
+        // Create collection bins for the consuming of colors
+        let _ = self.colors.keys().map(|k| collect.insert(k.clone(), vec![]));
+
+        let mut state_index = 0;
+
+        // Get function color
+        let func_color = self.colors.iter().find_map(|(key, &value)| if value == ColorType::Function {Some(key)} else {None}  ).unwrap();
+        
+        // Find toppest leftest function color
+        let mut head_pos = Point::from(-1, -1);
+        'outer: for j in 0..p.height {
+            for i in 0..p.width {
+                if p.get(i, j) == *func_color {
+                    head_pos = Point::from(i,j);
+                    break 'outer;
+                }
+            }
+        }
+        // If there is no function color found it's automatically invalid
+        if head_pos.x == -1 || head_pos.y == -1 {
+            return None;
+        }
+
+        return None;
+        
     }
 
     pub fn print(&self) {
