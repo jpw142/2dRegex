@@ -79,12 +79,58 @@ impl FSM {
         };
     }
 
-    pub fn identify(&self, mut p: Picture) -> Option<HashMap<Color, Vec<Color>>> {
+    pub fn identify(&self, p: Picture) -> Option<HashMap<Color, Vec<Color>>> {
+        fn recurse(head: Point, p: Picture, f: &FSM, state_index: i32, state_points: Vec<Point>, collect: HashMap<Color, Vec<Color>>) -> Option<HashMap<Color, Vec<Color>>> {
+            let cur_state = f.states[state_index as usize].clone();
+            // If the State we are in is empty, we are in the end, return all the colors we have
+            // collected!
+            if cur_state.t.len() == 0 {
+                return Some(collect);
+            }
+
+            // Loop through the transitions in this state and see if any of them work
+            for (destination, transition) in cur_state.t {
+                match transition {
+                    Transition::MoveRelative(rel_state, direction) => {
+                        if !p.in_bounds(direction) {
+                            return None
+                        }
+                        // Set it to the relative state's point + direction
+                        let new_head = state_points[rel_state] + direction;
+                        // clone state_points so nothing gets changed that shouldnt
+                        let mut new_points = state_points.clone();
+                        // We need to change the destination to our head because we are entering
+                        new_points[destination] = new_head;
+                        // If the recursion gives us a result then perfect return it, if not then
+                        // just go to next transition
+                        if let Some(result) = recurse(new_head, p.clone(), f, destination as i32, new_points, collect.clone()) {
+                            return Some(result);
+                        }
+                        else {
+                            continue;
+                        }
+                    }
+                    Transition::Consume(color) => {
+                        let head_color = p.get(head.x, head.y);
+                        // We never want to consume white, so if it's white don't waste our time
+                        if head_color == WHITE {
+                            continue;
+                        }
+                        let new_collect = collect.clone();
+                        // We can safely unwrap because we know we have inserteed every used color
+                        let _ = new_collect.get_mut(&color).unwrap().append(head_color);
+                    }
+                    Transition::Epsilon => {}
+                }
+            }
+            // If none of those transitiions work 
+            return None;
+            
+        }
+
         let mut collect: HashMap<Color, Vec<Color>> = HashMap::new();
         // Create collection bins for the consuming of colors
         let _ = self.colors.keys().map(|k| collect.insert(k.clone(), vec![]));
-
-        let mut state_index = 0;
 
         // Get function color
         let func_color = self.colors.iter().find_map(|(key, &value)| if value == ColorType::Function {Some(key)} else {None}  ).unwrap();
@@ -104,8 +150,18 @@ impl FSM {
             return None;
         }
 
-        return None;
+
+        // The index into the current state
+        let mut state_index = 0;
+
+        // The entry point for each state
+        let mut state_points = vec![Point::from(0, 0); self.states.len()];
         
+        // The transition index for each state's list of transitions
+        let mut transition_index = vec![0 as usize; self.states.len()];
+
+
+        return None;
     }
 
     pub fn print(&self) {

@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use image::io::Reader;
+use crate::point::Point;
 
 #[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
 pub struct Color {
@@ -60,6 +61,11 @@ impl Picture {
         }
 
         return ret_img;
+    }
+
+    /// Returns whether or not a point is within the bounds of a picture
+    pub fn in_bounds(&self, p: Point) -> bool {
+        return p.x < self.width && p.x >= 0 && p.y < self.height && p.y >= 0
     }
 
     /// Gets a pixel's color
