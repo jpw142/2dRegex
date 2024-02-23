@@ -10,7 +10,9 @@ use std::fs;
 
 fn main() {
     let picture = Picture::open_pic("test.png");
-    let mut fsm = FSM::builder(picture);
+    let mut fsm = FSM::builder(picture.clone());
     fsm.add_input(Color::from(255, 0, 0));
-    fsm.build().print();
+    let f = fsm.build();
+    f.print();
+    print!("{:?}", f.identify(picture.clone()));
 }

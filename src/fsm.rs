@@ -87,19 +87,19 @@ impl FSM {
             if cur_state.t.len() == 0 {
                 return Some(collect);
             }
-
             // Loop through the transitions in this state and see if any of them work
             for (destination, transition) in cur_state.t {
                 match transition {
                     Transition::MoveRelative(rel_state, direction) => {
-                        if !p.in_bounds(direction) {
-                            return None
-                        }
+                        // We need to change the destination to our head because we are entering
                         // Set it to the relative state's point + direction
                         let new_head = state_points[rel_state] + direction;
+                        // Check to make sure still in bounds
+                        if !p.in_bounds(new_head) {
+                            return None
+                        }
                         // clone state_points so nothing gets changed that shouldnt
                         let mut new_points = state_points.clone();
-                        // We need to change the destination to our head because we are entering
                         new_points[destination] = new_head;
                         // If the recursion gives us a result then perfect return it, if not then
                         // just go to next transition
@@ -116,21 +116,36 @@ impl FSM {
                         if head_color == WHITE {
                             continue;
                         }
-                        let new_collect = collect.clone();
+                        let mut new_collect = collect.clone();
                         // We can safely unwrap because we know we have inserteed every used color
-                        let _ = new_collect.get_mut(&color).unwrap().append(head_color);
+                        let color_list = new_collect.get_mut(&color).unwrap();
+
+                        color_list.push(head_color);
+                        // Sets it to white because we have collected it
+                        let mut new_picture = p.clone();
+                        new_picture.set(head.x, head.y, WHITE);
+
+                        // If the recursion gives us a result then perfect return it, if not then
+                        // just go to next transition
+                        if let Some(result) = recurse(head, new_picture, f, destination as i32, state_points.clone(), new_collect) {
+                            return Some(result);
+                        }
+                        else {
+                            continue;
+                        }
                     }
                     Transition::Epsilon => {}
                 }
             }
             // If none of those transitiions work 
             return None;
-            
         }
 
         let mut collect: HashMap<Color, Vec<Color>> = HashMap::new();
         // Create collection bins for the consuming of colors
-        let _ = self.colors.keys().map(|k| collect.insert(k.clone(), vec![]));
+        let _ = self.colors.keys().for_each(|k| {
+            collect.insert(k.clone(), vec![]);
+        });
 
         // Get function color
         let func_color = self.colors.iter().find_map(|(key, &value)| if value == ColorType::Function {Some(key)} else {None}  ).unwrap();
@@ -156,12 +171,13 @@ impl FSM {
 
         // The entry point for each state
         let mut state_points = vec![Point::from(0, 0); self.states.len()];
+        // Make sure to put in where you're entering!
+        state_points[0] = head_pos;
         
         // The transition index for each state's list of transitions
         let mut transition_index = vec![0 as usize; self.states.len()];
 
-
-        return None;
+        return recurse(head_pos, p.clone(), &self, state_index.clone(), state_points.clone(), collect.clone());
     }
 
     pub fn print(&self) {
@@ -272,6 +288,17 @@ mod tests {
             let mut fsm_builder = FSM::builder(p.clone());
             let fsm = fsm_builder.build();
             assert!(fsm.states.len() > 1);
+        }
+    }
+    #[test]
+    /// Checks to make sure all the definitions without loops identify themselves
+    fn fsm_identifies_self() {
+        let paths = fs::read_dir("./tests/definitions").unwrap();
+        for path in paths {
+            let p = picture::Picture::open_pic(path.unwrap().path().to_str().unwrap());
+            let mut fsm_builder = FSM::builder(p.clone());
+            let fsm = fsm_builder.build();
+            assert!(fsm.identify(p.clone()).is_some());
         }
     }
 }
