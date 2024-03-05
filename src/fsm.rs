@@ -19,7 +19,7 @@ pub enum ColorType {
     Function,
 }
 
-/// An abstract object that contains transitions to other indexes in its parent structure FSM
+/// An abstract object that contains transitions to other indexes in its parent structure Fsm
 /// On entering a state the position of the head is stored
 #[derive(Debug, Clone)]
 pub struct State {
@@ -36,55 +36,18 @@ impl State {
 
 #[derive(Debug, Clone)]
 /// The base struct for creating a finite state machine, storing it, and executing it
-pub struct FSM {
+pub struct Fsm {
     pub states: Vec<State>,
     pub colors: HashMap<Color, ColorType>,
 }
 
-impl FSM {
-    pub fn builder(mut p: Picture) -> FSMBuilder {
-        // Get function color
-        let result = p.four_corners();
-        if result.is_some() {
-            p.set(0, 0, WHITE);
-            p.set(p.width - 1, 0, WHITE);
-            p.set(p.width - 1, p.height - 1, WHITE);
-            p.set(0, p.height - 1, WHITE);
-        }
-        let func_color = result.unwrap_or(BLUE);
-
-        // Find upper left corner of the symbol
-        let mut head_pos = Point::from(-1, -1);
-        'outer: for j in 0..p.height {
-            for i in 0..p.width {
-                if p.get(i, j) == func_color {
-                    head_pos = Point::from(i,j);
-                    break 'outer;
-                }
-            }
-        }
-
-        let mut colors = HashMap::new();
-        colors.insert(func_color, ColorType::Function);
-
-        if head_pos.x == -1 || head_pos.y == -1 {
-            panic!("No function color found in FSM definition");
-        }
-
-        return FSMBuilder{
-            states: vec![State::new()],
-            head_pos,
-            p,
-            colors,
-        };
-    }
-
+impl Fsm {
     pub fn identify(&self, p: Picture) -> Option<HashMap<Color, Vec<Color>>> {
-        fn recurse(head: Point, p: Picture, f: &FSM, state_index: i32, state_points: Vec<Point>, collect: HashMap<Color, Vec<Color>>) -> Option<HashMap<Color, Vec<Color>>> {
+        fn recurse(head: Point, p: Picture, f: &Fsm, state_index: i32, state_points: Vec<Point>, collect: HashMap<Color, Vec<Color>>) -> Option<HashMap<Color, Vec<Color>>> {
             let cur_state = f.states[state_index as usize].clone();
             // If the State we are in is empty, we are in the end, return all the colors we have
             // collected!
-            if cur_state.t.len() == 0 {
+            if cur_state.t.is_empty() {
                 return Some(collect);
             }
             // Loop through the transitions in this state and see if any of them work
@@ -138,13 +101,13 @@ impl FSM {
                 }
             }
             // If none of those transitiions work 
-            return None;
+            None
         }
 
         let mut collect: HashMap<Color, Vec<Color>> = HashMap::new();
         // Create collection bins for the consuming of colors
-        let _ = self.colors.keys().for_each(|k| {
-            collect.insert(k.clone(), vec![]);
+        self.colors.keys().for_each(|k| {
+            collect.insert(*k, vec![]);
         });
 
         // Get function color
@@ -175,14 +138,52 @@ impl FSM {
         state_points[0] = head_pos;
         
         // The transition index for each state's list of transitions
-        let mut transition_index = vec![0 as usize; self.states.len()];
+        let mut transition_index = vec![0_usize; self.states.len()];
 
-        return recurse(head_pos, p.clone(), &self, state_index.clone(), state_points.clone(), collect.clone());
+        recurse(head_pos, p.clone(), self, state_index, state_points.clone(), collect.clone())
     }
 
     pub fn print(&self) {
         for i in 0..self.states.len() {
             println!("{}: {:?}", i, self.states[i]);
+        }
+    }
+
+
+    pub fn builder(mut p: Picture) -> FSMBuilder {
+        // Get function color
+        let result = p.four_corners();
+        if result.is_some() {
+            p.set(0, 0, WHITE);
+            p.set(p.width - 1, 0, WHITE);
+            p.set(p.width - 1, p.height - 1, WHITE);
+            p.set(0, p.height - 1, WHITE);
+        }
+        let func_color = result.unwrap_or(BLUE);
+
+        // Find upper left corner of the symbol
+        let mut head_pos = Point::from(-1, -1);
+        'outer: for j in 0..p.height {
+            for i in 0..p.width {
+                if p.get(i, j) == func_color {
+                    head_pos = Point::from(i,j);
+                    break 'outer;
+                }
+            }
+        }
+
+        let mut colors = HashMap::new();
+        colors.insert(func_color, ColorType::Function);
+
+        if head_pos.x == -1 || head_pos.y == -1 {
+            panic!("No function color found in Fsm definition");
+        }
+
+        FSMBuilder{
+            states: vec![State::new()],
+            head_pos,
+            p,
+            colors,
         }
     }
 }
@@ -199,7 +200,7 @@ impl FSMBuilder {
     /// Adds another empty state afterwards
     fn consume(&mut self, c: Color) {
         let len = self.states.len();
-        let color = self.color(c).unwrap().0.clone();
+        let color = *self.color(c).unwrap().0;
         self.states[len - 1].t.push((len, Transition::Consume(color)));
         self.states.push(State::new());
     }
@@ -231,10 +232,10 @@ impl FSMBuilder {
         return self.colors.get_key_value(&c);
     }
 
-    /// Recursively build a FSM from the FSM Builder
-    pub fn build(&mut self) -> FSM {
+    /// Recursively build a Fsm from the Fsm Builder
+    pub fn build(&mut self) -> Fsm {
         self.recurse();
-        FSM {
+        Fsm {
             states: self.states.clone(),
             colors: self.colors.clone(),
         }
@@ -285,7 +286,7 @@ mod tests {
         let paths = fs::read_dir("./tests/definitions").unwrap();
         for path in paths {
             let p = picture::Picture::open_pic(path.unwrap().path().to_str().unwrap());
-            let mut fsm_builder = FSM::builder(p.clone());
+            let mut fsm_builder = Fsm::builder(p.clone());
             let fsm = fsm_builder.build();
             assert!(fsm.states.len() > 1);
         }
@@ -296,7 +297,7 @@ mod tests {
         let paths = fs::read_dir("./tests/definitions").unwrap();
         for path in paths {
             let p = picture::Picture::open_pic(path.unwrap().path().to_str().unwrap());
-            let mut fsm_builder = FSM::builder(p.clone());
+            let mut fsm_builder = Fsm::builder(p.clone());
             let fsm = fsm_builder.build();
             assert!(fsm.identify(p.clone()).is_some());
         }
