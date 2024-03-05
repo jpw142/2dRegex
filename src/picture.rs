@@ -4,9 +4,9 @@ use crate::point::Point;
 
 #[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
 pub struct Color {
-    r: u8,
-    g: u8,
-    b: u8,
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
 }
 
 impl Color {
@@ -73,11 +73,20 @@ impl Picture {
         return self.pixels[(y * self.width + x) as usize]
     }
 
+    /// Gets a pixel's color from point
+    pub fn get_point(&self, p: Point) -> Color {
+        return self.pixels[(p.y * self.width + p.x) as usize]
+    }
+
     /// Sets a pixels color
     pub fn set(&mut self, x: i32, y: i32, c: Color) {
         self.pixels[(y * self.width + x) as usize] = c; 
     }
 
+    /// Sets a pixels color
+    pub fn set_point(&mut self, p: Point, c: Color) {
+        self.pixels[(p.y * self.width + p.x) as usize] = c; 
+    }
     /// Returns a subpicture, inclusive bounds, from (x1, y1) -> (x2, y2)
     pub fn subpicture(&self, x1: i32, y1: i32, x2: i32, y2: i32) -> Picture {
         let mut vec = vec![];

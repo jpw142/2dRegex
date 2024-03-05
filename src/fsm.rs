@@ -7,9 +7,11 @@ use std::collections::HashMap;
 /// The different transitions between states that are possible
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Transition {
-    MoveRelative(usize, Point), // Moves relative to a state
-    Consume(Color), // Move relative to a point from that state then consuME
-    Epsilon, // Change states for free
+    MoveRelative(usize, Point), // Moves relative to x state by p pos
+    Consume(Color), // Consume x color at head_pos
+    Capture(u8), // Tells identifier to start x capture group 
+    EndCapture(u8), // Tells the identifier to stop x capture group
+    Epsilon, // Change to destination state for free
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -74,7 +76,7 @@ impl Fsm {
                         }
                     }
                     Transition::Consume(color) => {
-                        let head_color = p.get(head.x, head.y);
+                        let head_color = p.get_point(head);
                         // We never want to consume white, so if it's white don't waste our time
                         if head_color == WHITE {
                             continue;
@@ -97,7 +99,9 @@ impl Fsm {
                             continue;
                         }
                     }
-                    Transition::Epsilon => {}
+                    Transition::Epsilon => {todo!()}
+                    Transition::Capture(g) => {todo!()}
+                    Transition::EndCapture(g) => {todo!()}
                 }
             }
             // If none of those transitiions work 
@@ -201,18 +205,70 @@ impl FSMBuilder {
     fn consume(&mut self, c: Color) {
         let len = self.states.len();
         let color = *self.color(c).unwrap().0;
+        // ...0[]
         self.states[len - 1].t.push((len, Transition::Consume(color)));
+        // ...0[Consume(1)]
         self.states.push(State::new());
+        // ...0[Consume(1)], 1[]
+
     }
 
-    /// Move relative to a state
-    /// s is optional, if not included it just defaults to the current state
+    /// Move relative to a current state/desired state
     /// p is relative coordinates to the state
     /// Adds another empty state afterwards
     fn move_rel(&mut self, s: Option<usize>, p: Point) {
         let len = self.states.len();
+        // ...0[]
         self.states[len - 1].t.push((len, Transition::MoveRelative(s.unwrap_or(len - 1), p)));
+        // ...0[MoveRelative(0/s)]
         self.states.push(State::new());
+        // ...0[MoveRelative(0/s)], 1[]
+    }
+
+    // Starts Capture group for group g
+    // Indicates that whenever something is consumed, add to g
+    fn start_capture(&mut self, g: u8) {
+        let len = self.states.len();
+        // ...0[]
+        self.states[len - 1].t.push((len, Transition::Capture(g)));
+        // ...0[Capture(g)]
+        self.states.push(State::new());
+        // ...0[Capture(g)], 1[]
+    }
+
+    // Ends Capture group for group g
+    // Indicates to stop adding to g
+    fn end_capture(&mut self, g: u8) {
+        let len = self.states.len();
+        // ...0[]
+        self.states[len - 1].t.push((len, Transition::EndCapture(g)));
+        // ...0[EndCapture(g)]
+        self.states.push(State::new());
+        // ...0[EndCapture(g)], 1[]
+    }
+
+    // Loop group g and continue going p direction while consuming c
+    // Ex loop group 8 and keep heading (0,1) {up}
+    fn loop_please(&mut self, p: Point, c: Color, g: u8, s: usize) {
+        // Start Capture -> Epsilon(3)/MoveRel -> Consume -> End Capture/Epsilon(1)
+    
+        self.start_capture(g);
+        // ... 0[Capture], 1[]
+
+        let len = self.states.len();
+        self.states[len - 1].t.push((len + 1, Transition::Epsilon));
+        // ... 0[Capture], 1[Epsilon(3)]
+        self.move_rel(Some(s), p);
+        // ... 0[Capture], 1[Epsilon(3), MoveRel(pos)], 2[]
+        
+        self.consume(c);
+        // ... 0[Capture], 1[Epsilon(3), MoveRel(pos)], 2[Consume(c)], 3[]
+
+        let len = self.states.len();
+        self.states[len - 1].t.push((len - 3, Transition::Epsilon));
+        // ... 0[Capture], 1[Epsilon(3), MoveRel(pos)], 2[Consume(c)], 3[Epsilon(2)], 4[]
+        self.end_capture(g);
+        // ... 0[Capture], 1[Epsilon(3), MoveRel(pos)], 2[Consume(c)], 3[Epsilon(2), Capture], 4[]
     }
     
     /// Adds input color to look for
@@ -234,38 +290,82 @@ impl FSMBuilder {
 
     /// Recursively build a Fsm from the Fsm Builder
     pub fn build(&mut self) -> Fsm {
-        self.recurse();
+        self.recurse(true);
         Fsm {
             states: self.states.clone(),
             colors: self.colors.clone(),
         }
     }
 
-    fn recurse(&mut self) {
+    // Recurses through a symbol and creates an FSM
+    // Consume tag indicates whether it should consume on entering new branch
+    fn recurse(&mut self, consume: bool) {
         let head_pos = self.head_pos;
         let cur_state = self.states.len() - 1;
-        let color = self.p.get(self.head_pos.x, self.head_pos.y);
-        self.consume(color);
-        self.p.set(head_pos.x, head_pos.y, WHITE);
+        let head_color = self.p.get_point(self.head_pos);
+        if consume {
+            self.consume(head_color);
+            self.p.set_point(head_pos, WHITE);
+        }
 
         for pos in SURROUNDING {
             let next_position = head_pos + pos;
-            if next_position.x < 0 || next_position.x >= self.p.width{
-                continue;
-            }
-            if next_position.y < 0 || next_position.y > self.p.height - 1{
+            if !self.p.in_bounds(next_position) {
                 continue;
             }
 
             let cur_color = self.p.get(next_position.x, next_position.y);
+
+            // SPECIAL LOOP CODE:
+            // It can be black -> red as long as green and blue are 0 and red != 255
+            if cur_color.g == 0 && cur_color.b == 0 && cur_color.r != 255 {
+                // Gotta make sure it's at least two blacks in a row
+                let mut black_count = 1;
+                let mut black_pos = next_position;
+                loop {
+                    // Keep going the same direction 
+                    black_pos += pos; 
+                    if !self.p.in_bounds(black_pos) {
+                        break;
+                    }
+                    let cur_black = self.p.get_point(black_pos);
+                    // Make sure it's all the same balck
+                    if cur_black == cur_color {
+                        black_count += 1;
+                    }
+                    else {
+                        break;
+                    }
+                }
+                // If we find we have more than 1 black then we have a loop
+                if black_count <= 1 {
+                    continue;
+                }
+                // Get rid of all the blacks along the way
+                for i in 0..=black_count {
+                    self.p.set_point(next_position + (pos * i), WHITE);
+                }
+                self.loop_please(pos, head_color, cur_color.r, cur_state);
+                // Essentially goes to one after last black, pretend you are there already, don't
+                // reconsume, and go look around
+                if self.p.in_bounds(black_pos) {
+                    self.head_pos = black_pos;
+                    self.recurse(false);
+                }
+                else {
+                    continue;
+                }
+            }
             // If we don't care about the color of the surrounding pixel go to the next one
-            if self.color(cur_color).is_none() {
+            else if self.color(cur_color).is_none() {
                 continue;
             }
-
-            self.move_rel(Some(cur_state), pos);
-            self.head_pos = next_position;
-            self.recurse();
+            // NORMAL CASE:
+            else {
+                self.move_rel(Some(cur_state), pos);
+                self.head_pos = next_position;
+                self.recurse(true);
+            }
         } 
     }
 }

@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use std::ops::{Sub, Add, AddAssign};
+use std::ops::{Sub, Add, AddAssign, Mul};
 /// Just a basic point representation
 /// i32, i32
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -23,6 +23,14 @@ impl Add for Point {
         }
     }
 }
+impl AddAssign for Point {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
 impl Sub for Point {
     type Output = Self;
     fn sub(self, other: Self) -> Self {
@@ -32,11 +40,22 @@ impl Sub for Point {
         }
     }
 }
-impl AddAssign for Point {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = Self {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
+impl Mul for Point {
+    type Output = Self;
+    fn mul(self, other: Self) -> Self {
+        Self {
+            x: self.x * other.x,
+            y: self.y * other.y,
+        }
+    }
+}
+
+impl Mul<i32> for Point {
+    type Output = Self;
+    fn mul(self, other: i32) -> Self {
+        Self {
+            x: self.x * other,
+            y: self.y * other,
         }
     }
 }
