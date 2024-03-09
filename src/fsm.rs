@@ -259,7 +259,7 @@ impl FSMBuilder {
         self.move_rel(Some(s), p);
         // ... 0[Capture], 1[MoveRel(pos)], 2[]
         self.states[len - 1].t.push((len + 1, Transition::Epsilon));
-        // ... 0[Capture], 1[Epsilon(3), MoveRel(pos)]
+        // ... 0[Capture], 1[MoveRel(pos),Epsilon(3)]
         
         self.consume(c);
         // ... 0[Capture], 1[Epsilon(3), MoveRel(pos)], 2[Consume(c)], 3[]
@@ -272,29 +272,29 @@ impl FSMBuilder {
     }
     
     /// Adds input color to look for
-    /// Internally all colors have a usize that identifies it
     pub fn add_input(&mut self, c: Color) {
         self.colors.insert(c, ColorType::Input);
     }
 
     /// Adds output color to look for
-    /// Internally all colors have a usize that identifies it
     pub fn add_output(&mut self, c: Color) {
         self.colors.insert(c, ColorType::Output);
     }
     
-    /// Identifies if a selected color is significant to the relative finite state machine
+    /// Identifies if a selected color is significant to finite state machine
     fn color(&self, c: Color) -> Option<(&Color, &ColorType)> {
         return self.colors.get_key_value(&c);
     }
 
     /// Recursively build a Fsm from the Fsm Builder
-    pub fn build(&mut self) -> Fsm {
+    pub fn build(mut self) -> Fsm {
         self.recurse(true);
-        Fsm {
-            states: self.states.clone(),
-            colors: self.colors.clone(),
-        }
+        let fsm = Fsm {
+            states: std::mem::take(&mut self.states),
+            colors: std::mem::take(&mut self.colors),
+        };
+        drop(self);
+        return fsm;
     }
 
     // Recurses through a symbol and creates an FSM
