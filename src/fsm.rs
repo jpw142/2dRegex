@@ -256,10 +256,10 @@ impl FSMBuilder {
         // ... 0[Capture], 1[]
 
         let len = self.states.len();
-        self.states[len - 1].t.push((len + 1, Transition::Epsilon));
-        // ... 0[Capture], 1[Epsilon(3)]
         self.move_rel(Some(s), p);
-        // ... 0[Capture], 1[Epsilon(3), MoveRel(pos)], 2[]
+        // ... 0[Capture], 1[MoveRel(pos)], 2[]
+        self.states[len - 1].t.push((len + 1, Transition::Epsilon));
+        // ... 0[Capture], 1[Epsilon(3), MoveRel(pos)]
         
         self.consume(c);
         // ... 0[Capture], 1[Epsilon(3), MoveRel(pos)], 2[Consume(c)], 3[]
