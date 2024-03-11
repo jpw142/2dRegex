@@ -45,7 +45,7 @@ pub struct Fsm {
 
 impl Fsm {
     pub fn identify(&self, p: Picture) -> Option<HashMap<Color, Vec<Color>>> {
-        fn recurse(head: Point, p: Picture, f: &Fsm, state_index: i32, state_points: Vec<Point>, collect: HashMap<Color, Vec<Color>>) -> Option<HashMap<Color, Vec<Color>>> {
+        fn recurse(head: Point, p: Picture, f: &Fsm, state_index: i32, state_points: Vec<Point>, collect: HashMap<Color, Vec<Color>>, epsilon: Option<i32>) -> Option<HashMap<Color, Vec<Color>>> {
             let cur_state = f.states[state_index as usize].clone();
             // If the State we are in is empty, we are in the end, return all the colors we have
             // collected!
@@ -68,7 +68,7 @@ impl Fsm {
                         new_points[destination] = new_head;
                         // If the recursion gives us a result then perfect return it, if not then
                         // just go to next transition
-                        if let Some(result) = recurse(new_head, p.clone(), f, destination as i32, new_points, collect.clone()) {
+                        if let Some(result) = recurse(new_head, p.clone(), f, destination as i32, new_points, collect.clone(), None) {
                             return Some(result);
                         }
                         else {
@@ -92,14 +92,26 @@ impl Fsm {
 
                         // If the recursion gives us a result then perfect return it, if not then
                         // just go to next transition
-                        if let Some(result) = recurse(head, new_picture, f, destination as i32, state_points.clone(), new_collect) {
+                        if let Some(result) = recurse(head, new_picture, f, destination as i32, state_points.clone(), new_collect, None) {
                             return Some(result);
                         }
                         else {
                             continue;
                         }
                     }
-                    Transition::Epsilon => {todo!()}
+                    Transition::Epsilon => {
+                        // If the last transition was an epsilon
+                        if let Some(eps) = epsilon {
+                            // And if we are going back to that transition
+                            if eps == destination as i32 {
+                                // Then just return none to avoid infinite loop
+                                return None;
+                            }
+                        }
+                        if let Some(result) = recurse(head, p.clone(), f, destination as i32, state_points.clone(), collect.clone(), Some(state_index)) {
+                            return Some(result);
+                        }
+                    }
                     Transition::Capture(g) => {todo!()}
                     Transition::EndCapture(g) => {todo!()}
                 }
@@ -144,7 +156,7 @@ impl Fsm {
         // The transition index for each state's list of transitions
         let mut transition_index = vec![0_usize; self.states.len()];
 
-        recurse(head_pos, p.clone(), self, state_index, state_points.clone(), collect.clone())
+        recurse(head_pos, p.clone(), self, state_index, state_points.clone(), collect.clone(), None)
     }
 
     pub fn print(&self) {
