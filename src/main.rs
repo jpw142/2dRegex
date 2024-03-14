@@ -1,11 +1,9 @@
 #![allow(non_snake_case)]
-mod picture;
-mod fsm;
-mod point;
+mod tokenizer;
 
-use picture::Picture;
-use fsm::Fsm;
-use picture::Color;
+use tokenizer::picture::Picture;
+use tokenizer::fsm::Fsm;
+use tokenizer::picture::Color;
 // use std::fs;
 
 
