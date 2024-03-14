@@ -55,8 +55,8 @@ impl Fsm {
             mut state_points: Vec<Point>, 
             collect: HashMap<Color, Vec<Color>>, 
             epsilon: Option<i32>,
-            capture_groups: Vec<(u8, i32)>,
-            ended_groups: HashMap<u8, i32>
+            capture_groups: &Vec<(u8, i32)>,
+            ended_groups: &HashMap<u8, i32>
             ) -> Option<HashMap<Color, Vec<Color>>> {
             let cur_state = f.states[state_index as usize].clone();
             state_points[state_index as usize] = head;
@@ -81,7 +81,7 @@ impl Fsm {
                         new_points[destination] = new_head;
                         // If the recursion gives us a result then perfect return it, if not then
                         // just go to next transition
-                        if let Some(result) = recurse(new_head, p, p_consumed, f, destination as i32, new_points, collect.clone(), None, capture_groups.clone(), ended_groups.clone()) {
+                        if let Some(result) = recurse(new_head, p, p_consumed, f, destination as i32, new_points, collect.clone(), None, capture_groups, ended_groups) {
                             return Some(result);
                         }
                         else {
@@ -117,7 +117,7 @@ impl Fsm {
                         }
                         // If the recursion gives us a result then perfect return it, if not then
                         // just go to next transition
-                        if let Some(result) = recurse(head, p, &new_p_consumed, f, destination as i32, state_points.clone(), new_collect, None, new_capture, ended_groups.clone()) {
+                        if let Some(result) = recurse(head, p, &new_p_consumed, f, destination as i32, state_points.clone(), new_collect, None, &new_capture, ended_groups) {
                             return Some(result);
                         }
                     }
@@ -130,14 +130,14 @@ impl Fsm {
                                 continue;
                             }
                         }
-                        if let Some(result) = recurse(head, p, p_consumed, f, destination as i32, state_points.clone(), collect.clone(), Some(state_index), capture_groups.clone(), ended_groups.clone()) {
+                        if let Some(result) = recurse(head, p, p_consumed, f, destination as i32, state_points.clone(), collect.clone(), Some(state_index), capture_groups, ended_groups) {
                             return Some(result);
                         }
                     }
                     Transition::Capture(g) => {
                         let mut new_capture = capture_groups.clone();
                         new_capture.push((g, 0));
-                        if let Some(result) = recurse(head, p, p_consumed, f, destination as i32, state_points.clone(), collect.clone(), Some(state_index), new_capture, ended_groups.clone()) {
+                        if let Some(result) = recurse(head, p, p_consumed, f, destination as i32, state_points.clone(), collect.clone(), Some(state_index), &new_capture, ended_groups) {
                             return Some(result);
                         }
                     }
@@ -158,7 +158,7 @@ impl Fsm {
                         }
                         let mut new_capture = capture_groups.clone();
                         new_capture.retain(|(x, _)| {*x != g});
-                        if let Some(result) = recurse(head, p, p_consumed, f, destination as i32, state_points.clone(), collect.clone(), Some(state_index), new_capture, new_ended) {
+                        if let Some(result) = recurse(head, p, p_consumed, f, destination as i32, state_points.clone(), collect.clone(), Some(state_index), &new_capture, &new_ended) {
                             return Some(result);
                         }
 
@@ -198,7 +198,7 @@ impl Fsm {
         // Make sure to put in where you're entering!
         state_points[0] = head_pos;
 
-        recurse(head_pos, &p, &HashSet::new(), self, 0, state_points.clone(), collect.clone(), None, vec![], HashMap::new())
+        recurse(head_pos, &p, &HashSet::new(), self, 0, state_points.clone(), collect.clone(), None, &vec![], &HashMap::new())
     }
 
     pub fn print(&self) {
