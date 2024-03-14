@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use crate::picture::*;
-use crate::point::*;
+use crate::tokenizer::point::*;
+use crate::tokenizer::picture::*;
 
 use std::collections::HashMap;
 
@@ -425,7 +425,7 @@ impl FSMBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::picture;
+    use crate::tokenizer::picture;
     use super::*;
     use std::fs;
     
