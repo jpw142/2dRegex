@@ -22,5 +22,5 @@ fn main() {
     fsm.add_input(Color::from(255, 0, 0));
     let f = fsm.build();
     f.print();
-    print!("{:?}", f.identify(picture3.clone()));
+    print!("{:?}", f.identify(&picture3));
 }

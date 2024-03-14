@@ -45,7 +45,7 @@ pub struct Fsm {
 }
 
 impl Fsm {
-    pub fn identify(&self, p: Picture) -> Option<HashMap<Color, Vec<Color>>> {
+    pub fn identify(&self, p: &Picture) -> Option<HashMap<Color, Vec<Color>>> {
         fn recurse(
             head: Point, 
             p: &Picture, 
@@ -176,7 +176,7 @@ impl Fsm {
         });
 
         // Get function color
-        let func_color = self.colors.iter().find_map(|(key, &value)| if value == ColorType::Function {Some(key)} else {None}  ).unwrap();
+        let func_color = self.colors.iter().find_map(|(key, &value)| if value == ColorType::Function {Some(key)} else {None}).unwrap();
         
         // Find toppest leftest function color
         let mut head_pos = Point::from(-1, -1);
@@ -453,7 +453,7 @@ mod tests {
             let p = picture::Picture::open_pic(path.unwrap().path().to_str().unwrap());
             let fsm_builder = Fsm::builder(p.clone());
             let fsm = fsm_builder.build();
-            assert!(fsm.identify(p.clone()).is_some());
+            assert!(fsm.identify(&p).is_some());
         }
     }
     #[test]
