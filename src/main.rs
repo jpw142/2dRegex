@@ -14,7 +14,7 @@ fn main() {
     //println!("");
     let picture2 = Picture::open_pic("loop_test.png");
     let picture3 = Picture::open_pic("loop_test2.png");
-    let mut fsm = Fsm::builder(picture2.clone());
+    let mut fsm = Fsm::builder(&picture2);
     fsm.add_input(Color::from(255, 0, 0));
     let f = fsm.build();
     f.print();

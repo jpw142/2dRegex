@@ -148,7 +148,6 @@ impl Fsm {
         }
 
         let mut collect: HashMap<Color, Vec<Color>> = HashMap::new();
-        // Create collection bins for the consuming of colors
         self.colors.keys().for_each(|k| {
             collect.insert(*k, vec![]);
         });
@@ -180,22 +179,23 @@ impl Fsm {
     }
 
 
-    pub fn builder(mut p: Picture) -> FSMBuilder {
+    pub fn builder(p: &Picture) -> FSMBuilder {
+        let mut new_p = p.clone();
         // Get function color
-        let result = p.four_corners();
+        let result = new_p.four_corners();
         if result.is_some() {
-            p.set(0, 0, WHITE);
-            p.set(p.width - 1, 0, WHITE);
-            p.set(p.width - 1, p.height - 1, WHITE);
-            p.set(0, p.height - 1, WHITE);
+            new_p.set(0, 0, WHITE);
+            new_p.set(p.width - 1, 0, WHITE);
+            new_p.set(p.width - 1, p.height - 1, WHITE);
+            new_p.set(0, p.height - 1, WHITE);
         }
         let func_color = result.unwrap_or(BLUE);
 
         // Find upper left corner of the symbol
         let mut head_pos = Point::from(-1, -1);
-        'outer: for j in 0..p.height {
-            for i in 0..p.width {
-                if p.get(i, j) == func_color {
+        'outer: for j in 0..new_p.height {
+            for i in 0..new_p.width {
+                if new_p.get(i, j) == func_color {
                     head_pos = Point::from(i,j);
                     break 'outer;
                 }
@@ -212,7 +212,7 @@ impl Fsm {
         FSMBuilder{
             states: vec![State::new()],
             head_pos,
-            p,
+            p: new_p,
             colors,
         }
     }
@@ -297,12 +297,10 @@ impl FSMBuilder {
         // ... 0[Capture], 1[Epsilon(3), MoveRel(pos)], 2[Consume(c)], 3[Epsilon(2), Capture], 4[]
     }
     
-    /// Adds input color to look for
     pub fn add_input(&mut self, c: Color) {
         self.colors.insert(c, ColorType::Input);
     }
 
-    /// Adds output color to look for
     pub fn add_output(&mut self, c: Color) {
         self.colors.insert(c, ColorType::Output);
     }
@@ -312,7 +310,6 @@ impl FSMBuilder {
         return self.colors.get_key_value(&c);
     }
 
-    /// Recursively build a Fsm from the Fsm Builder
     pub fn build(mut self) -> Fsm {
         self.recurse(true);
         let fsm = Fsm {
@@ -345,17 +342,14 @@ impl FSMBuilder {
             // SPECIAL LOOP CODE:
             // It can be black -> red as long as green and blue are 0 and red != 255
             if cur_color.g == 0 && cur_color.b == 0 && cur_color.r != 255 {
-                // Gotta make sure it's at least two blacks in a row
                 let mut black_count = 1;
                 let mut black_pos = next_position;
                 loop {
-                    // Keep going the same direction 
                     black_pos += pos; 
                     if !self.p.in_bounds(black_pos) {
                         break;
                     }
                     let cur_black = self.p.get_point(black_pos);
-                    // Make sure it's all the same balck
                     if cur_black == cur_color {
                         black_count += 1;
                     }
@@ -363,23 +357,17 @@ impl FSMBuilder {
                         break;
                     }
                 }
-                // If we find we have more than 1 black then we have a loop
-                if black_count <= 1 {
-                    continue;
-                }
-                // Get rid of all the blacks along the way
+                if black_count < 2 {continue}
                 for i in 0..=black_count {
                     self.p.set_point(next_position + (pos * i), WHITE);
                 }
+
                 self.loop_please(pos, head_color, cur_color.r);
                 // Essentially goes to one after last black, pretend you are there already, don't
                 // reconsume, and go look around
                 if self.p.in_bounds(black_pos) {
                     self.head_pos = black_pos;
                     self.recurse(false);
-                }
-                else {
-                    continue;
                 }
             }
             // If we don't care about the color of the surrounding pixel go to the next one
@@ -412,7 +400,7 @@ mod tests {
         let paths = fs::read_dir("./tests/definitions").unwrap();
         for path in paths {
             let p = picture::Picture::open_pic(path.unwrap().path().to_str().unwrap());
-            let fsm_builder = Fsm::builder(p);
+            let fsm_builder = Fsm::builder(&p);
             let fsm = fsm_builder.build();
             assert!(fsm.states.len() > 1);
         }
@@ -423,7 +411,7 @@ mod tests {
         let paths = fs::read_dir("./tests/definitions").unwrap();
         for path in paths {
             let p = picture::Picture::open_pic(path.unwrap().path().to_str().unwrap());
-            let fsm_builder = Fsm::builder(p.clone());
+            let fsm_builder = Fsm::builder(&p);
             let fsm = fsm_builder.build();
             assert!(fsm.identify(&p).is_some());
         }
@@ -434,7 +422,7 @@ mod tests {
         let paths = fs::read_dir("./tests/loop_definitions").unwrap();
         for path in paths {
             let p = picture::Picture::open_pic(path.unwrap().path().to_str().unwrap());
-            let fsm_builder = Fsm::builder(p);
+            let fsm_builder = Fsm::builder(&p);
             let fsm = fsm_builder.build();
             assert!(fsm.states.len() > 1);
         }
