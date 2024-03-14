@@ -45,8 +45,19 @@ pub struct Fsm {
 
 impl Fsm {
     pub fn identify(&self, p: Picture) -> Option<HashMap<Color, Vec<Color>>> {
-        fn recurse(head: Point, p: Picture, f: &Fsm, state_index: i32, state_points: Vec<Point>, collect: HashMap<Color, Vec<Color>>, epsilon: Option<i32>) -> Option<HashMap<Color, Vec<Color>>> {
+        fn recurse(
+            head: Point, 
+            p: Picture, 
+            f: &Fsm, 
+            state_index: i32, 
+            mut state_points: Vec<Point>, 
+            collect: HashMap<Color, Vec<Color>>, 
+            epsilon: Option<i32>,
+            capture_groups: Vec<(u8, i32)>,
+            ended_groups: HashMap<u8, i32>
+            ) -> Option<HashMap<Color, Vec<Color>>> {
             let cur_state = f.states[state_index as usize].clone();
+            state_points[state_index as usize] = head;
             // If the State we are in is empty, we are in the end, return all the colors we have
             // collected!
             if cur_state.t.is_empty() {
@@ -61,14 +72,14 @@ impl Fsm {
                         let new_head = state_points[rel_state] + direction;
                         // Check to make sure still in bounds
                         if !p.in_bounds(new_head) {
-                            return None
+                            continue;
                         }
                         // clone state_points so nothing gets changed that shouldnt
                         let mut new_points = state_points.clone();
                         new_points[destination] = new_head;
                         // If the recursion gives us a result then perfect return it, if not then
                         // just go to next transition
-                        if let Some(result) = recurse(new_head, p.clone(), f, destination as i32, new_points, collect.clone(), None) {
+                        if let Some(result) = recurse(new_head, p.clone(), f, destination as i32, new_points, collect.clone(), None, capture_groups.clone(), ended_groups.clone()) {
                             return Some(result);
                         }
                         else {
@@ -90,13 +101,22 @@ impl Fsm {
                         let mut new_picture = p.clone();
                         new_picture.set(head.x, head.y, WHITE);
 
+                        // Update capture groups
+                        let mut new_capture = vec![];
+                        capture_groups.iter().for_each(|(x, c)| {new_capture.push((*x, c + 1))});
+                        // If when we consume and the capture group is bigger than an existing
+                        // ended capture group then it cant work
+                        for (x,c) in new_capture.iter() {
+                            if let Some(result) = ended_groups.get(x) {
+                                if *c > *result {
+                                    continue;
+                                }
+                            }
+                        }
                         // If the recursion gives us a result then perfect return it, if not then
                         // just go to next transition
-                        if let Some(result) = recurse(head, new_picture, f, destination as i32, state_points.clone(), new_collect, None) {
+                        if let Some(result) = recurse(head, new_picture, f, destination as i32, state_points.clone(), new_collect, None, new_capture, ended_groups.clone()) {
                             return Some(result);
-                        }
-                        else {
-                            continue;
                         }
                     }
                     Transition::Epsilon => {
@@ -105,15 +125,42 @@ impl Fsm {
                             // And if we are going back to that transition
                             if eps == destination as i32 {
                                 // Then just return none to avoid infinite loop
-                                return None;
+                                continue;
                             }
                         }
-                        if let Some(result) = recurse(head, p.clone(), f, destination as i32, state_points.clone(), collect.clone(), Some(state_index)) {
+                        if let Some(result) = recurse(head, p.clone(), f, destination as i32, state_points.clone(), collect.clone(), Some(state_index), capture_groups.clone(), ended_groups.clone()) {
                             return Some(result);
                         }
                     }
-                    Transition::Capture(g) => {todo!()}
-                    Transition::EndCapture(g) => {todo!()}
+                    Transition::Capture(g) => {
+                        let mut new_capture = capture_groups.clone();
+                        new_capture.push((g, 0));
+                        if let Some(result) = recurse(head, p.clone(), f, destination as i32, state_points.clone(), collect.clone(), Some(state_index), new_capture, ended_groups.clone()) {
+                            return Some(result);
+                        }
+                    }
+                    Transition::EndCapture(g) => {
+                        let mut new_capture = capture_groups.clone();
+                        new_capture.retain(|(x, _)| {*x == g});
+                        let c = new_capture[0].1;
+                        let mut new_ended = ended_groups.clone();
+                        // If there already has been an ended see if it equals
+                        if let Some(result) = ended_groups.get(&g) {
+                            if *result != c {
+                                continue;
+                            }
+                        }
+                        // If there isn't already an ended, add an ended
+                        else {
+                            new_ended.insert(g, c);
+                        }
+                        let mut new_capture = capture_groups.clone();
+                        new_capture.retain(|(x, _)| {*x != g});
+                        if let Some(result) = recurse(head, p.clone(), f, destination as i32, state_points.clone(), collect.clone(), Some(state_index), new_capture, new_ended) {
+                            return Some(result);
+                        }
+
+                    }
                 }
             }
             // If none of those transitiions work 
@@ -144,19 +191,12 @@ impl Fsm {
             return None;
         }
 
-
-        // The index into the current state
-        let mut state_index = 0;
-
         // The entry point for each state
         let mut state_points = vec![Point::from(0, 0); self.states.len()];
         // Make sure to put in where you're entering!
         state_points[0] = head_pos;
-        
-        // The transition index for each state's list of transitions
-        let mut transition_index = vec![0_usize; self.states.len()];
 
-        recurse(head_pos, p.clone(), self, state_index, state_points.clone(), collect.clone(), None)
+        recurse(head_pos, p.clone(), self, 0, state_points.clone(), collect.clone(), None, vec![], HashMap::new())
     }
 
     pub fn print(&self) {
@@ -261,14 +301,14 @@ impl FSMBuilder {
 
     // Loop group g and continue going p direction while consuming c
     // Ex loop group 8 and keep heading (0,1) {up}
-    fn loop_please(&mut self, p: Point, c: Color, g: u8, s: usize) {
+    fn loop_please(&mut self, p: Point, c: Color, g: u8) {
         // Start Capture -> Epsilon(3)/MoveRel -> Consume -> End Capture/Epsilon(1)
     
         self.start_capture(g);
         // ... 0[Capture], 1[]
 
         let len = self.states.len();
-        self.move_rel(Some(s), p);
+        self.move_rel(Some(len - 1), p);
         // ... 0[Capture], 1[MoveRel(pos)], 2[]
         self.states[len - 1].t.push((len + 1, Transition::Epsilon));
         // ... 0[Capture], 1[MoveRel(pos),Epsilon(3)]
@@ -357,7 +397,7 @@ impl FSMBuilder {
                 for i in 0..=black_count {
                     self.p.set_point(next_position + (pos * i), WHITE);
                 }
-                self.loop_please(pos, head_color, cur_color.r, cur_state);
+                self.loop_please(pos, head_color, cur_color.r);
                 // Essentially goes to one after last black, pretend you are there already, don't
                 // reconsume, and go look around
                 if self.p.in_bounds(black_pos) {
@@ -398,7 +438,7 @@ mod tests {
         let paths = fs::read_dir("./tests/definitions").unwrap();
         for path in paths {
             let p = picture::Picture::open_pic(path.unwrap().path().to_str().unwrap());
-            let mut fsm_builder = Fsm::builder(p.clone());
+            let fsm_builder = Fsm::builder(p);
             let fsm = fsm_builder.build();
             assert!(fsm.states.len() > 1);
         }
@@ -409,9 +449,20 @@ mod tests {
         let paths = fs::read_dir("./tests/definitions").unwrap();
         for path in paths {
             let p = picture::Picture::open_pic(path.unwrap().path().to_str().unwrap());
-            let mut fsm_builder = Fsm::builder(p.clone());
+            let fsm_builder = Fsm::builder(p.clone());
             let fsm = fsm_builder.build();
             assert!(fsm.identify(p.clone()).is_some());
+        }
+    }
+    #[test]
+    /// Checks that all of the fsm definition tests compile into an fsm regardless of correctness
+    fn loop_fsm_compiles() {
+        let paths = fs::read_dir("./tests/loop_definitions").unwrap();
+        for path in paths {
+            let p = picture::Picture::open_pic(path.unwrap().path().to_str().unwrap());
+            let fsm_builder = Fsm::builder(p);
+            let fsm = fsm_builder.build();
+            assert!(fsm.states.len() > 1);
         }
     }
 }
