@@ -91,7 +91,7 @@ impl Fsm {
                     Transition::Consume(color) => {
                         let head_color = p.get_point(head);
                         // We never want to consume white, so if it's white don't waste our time
-                        if head_color == WHITE || p_consumed.get(&head).is_some(){
+                        if head_color == WHITE || p_consumed.contains(&head){
                             continue;
                         }
                         let mut new_collect = collect.clone();
