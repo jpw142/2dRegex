@@ -2,7 +2,7 @@
 use std::ops::{Sub, Add, AddAssign, Mul};
 /// Just a basic point representation
 /// i32, i32
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Point{pub x: i32, pub y: i32}
 
 impl Point {

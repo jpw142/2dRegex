@@ -3,6 +3,7 @@ use crate::tokenizer::point::*;
 use crate::tokenizer::picture::*;
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 /// The different transitions between states that are possible
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -47,7 +48,8 @@ impl Fsm {
     pub fn identify(&self, p: Picture) -> Option<HashMap<Color, Vec<Color>>> {
         fn recurse(
             head: Point, 
-            p: Picture, 
+            p: &Picture, 
+            p_consumed: &HashSet<Point>,
             f: &Fsm, 
             state_index: i32, 
             mut state_points: Vec<Point>, 
@@ -79,7 +81,7 @@ impl Fsm {
                         new_points[destination] = new_head;
                         // If the recursion gives us a result then perfect return it, if not then
                         // just go to next transition
-                        if let Some(result) = recurse(new_head, p.clone(), f, destination as i32, new_points, collect.clone(), None, capture_groups.clone(), ended_groups.clone()) {
+                        if let Some(result) = recurse(new_head, p, p_consumed, f, destination as i32, new_points, collect.clone(), None, capture_groups.clone(), ended_groups.clone()) {
                             return Some(result);
                         }
                         else {
@@ -89,7 +91,7 @@ impl Fsm {
                     Transition::Consume(color) => {
                         let head_color = p.get_point(head);
                         // We never want to consume white, so if it's white don't waste our time
-                        if head_color == WHITE {
+                        if head_color == WHITE || p_consumed.get(&head).is_some(){
                             continue;
                         }
                         let mut new_collect = collect.clone();
@@ -98,8 +100,8 @@ impl Fsm {
 
                         color_list.push(head_color);
                         // Sets it to white because we have collected it
-                        let mut new_picture = p.clone();
-                        new_picture.set(head.x, head.y, WHITE);
+                        let mut new_p_consumed = p_consumed.clone();
+                        new_p_consumed.insert(head);
 
                         // Update capture groups
                         let mut new_capture = vec![];
@@ -115,7 +117,7 @@ impl Fsm {
                         }
                         // If the recursion gives us a result then perfect return it, if not then
                         // just go to next transition
-                        if let Some(result) = recurse(head, new_picture, f, destination as i32, state_points.clone(), new_collect, None, new_capture, ended_groups.clone()) {
+                        if let Some(result) = recurse(head, p, &new_p_consumed, f, destination as i32, state_points.clone(), new_collect, None, new_capture, ended_groups.clone()) {
                             return Some(result);
                         }
                     }
@@ -128,14 +130,14 @@ impl Fsm {
                                 continue;
                             }
                         }
-                        if let Some(result) = recurse(head, p.clone(), f, destination as i32, state_points.clone(), collect.clone(), Some(state_index), capture_groups.clone(), ended_groups.clone()) {
+                        if let Some(result) = recurse(head, p, p_consumed, f, destination as i32, state_points.clone(), collect.clone(), Some(state_index), capture_groups.clone(), ended_groups.clone()) {
                             return Some(result);
                         }
                     }
                     Transition::Capture(g) => {
                         let mut new_capture = capture_groups.clone();
                         new_capture.push((g, 0));
-                        if let Some(result) = recurse(head, p.clone(), f, destination as i32, state_points.clone(), collect.clone(), Some(state_index), new_capture, ended_groups.clone()) {
+                        if let Some(result) = recurse(head, p, p_consumed, f, destination as i32, state_points.clone(), collect.clone(), Some(state_index), new_capture, ended_groups.clone()) {
                             return Some(result);
                         }
                     }
@@ -156,7 +158,7 @@ impl Fsm {
                         }
                         let mut new_capture = capture_groups.clone();
                         new_capture.retain(|(x, _)| {*x != g});
-                        if let Some(result) = recurse(head, p.clone(), f, destination as i32, state_points.clone(), collect.clone(), Some(state_index), new_capture, new_ended) {
+                        if let Some(result) = recurse(head, p, p_consumed, f, destination as i32, state_points.clone(), collect.clone(), Some(state_index), new_capture, new_ended) {
                             return Some(result);
                         }
 
@@ -196,7 +198,7 @@ impl Fsm {
         // Make sure to put in where you're entering!
         state_points[0] = head_pos;
 
-        recurse(head_pos, p.clone(), self, 0, state_points.clone(), collect.clone(), None, vec![], HashMap::new())
+        recurse(head_pos, &p, &HashSet::new(), self, 0, state_points.clone(), collect.clone(), None, vec![], HashMap::new())
     }
 
     pub fn print(&self) {

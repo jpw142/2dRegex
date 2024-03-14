@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use image::io::Reader;
-use crate::point::Point;
+use crate::tokenizer::point::Point;
 
 #[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
 pub struct Color {
