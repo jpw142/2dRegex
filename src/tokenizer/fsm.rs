@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 use crate::tokenizer::point::*;
 use crate::tokenizer::picture::*;
-
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -36,7 +35,6 @@ impl State {
     }
 }
 
-
 #[derive(Debug, Clone)]
 /// The base struct for creating a finite state machine, storing it, and executing it
 pub struct Fsm {
@@ -58,56 +56,43 @@ impl Fsm {
             capture_groups: &Vec<(u8, i32)>,
             ended_groups: &HashMap<u8, i32>
             ) -> Option<HashMap<Color, Vec<Color>>> {
+
             let cur_state = f.states[state_index as usize].clone();
             state_points[state_index as usize] = head;
-            // If the State we are in is empty, we are in the end, return all the colors we have
-            // collected!
+            // Finish state has no transitions out
             if cur_state.t.is_empty() {
                 return Some(collect.clone());
             }
-            // Loop through the transitions in this state and see if any of them work
+
             for (destination, transition) in cur_state.t {
                 match transition {
                     Transition::MoveRelative(rel_state, direction) => {
-                        // We need to change the destination to our head because we are entering
-                        // Set it to the relative state's point + direction
                         let new_head = state_points[rel_state] + direction;
-                        // Check to make sure still in bounds
                         if !p.in_bounds(new_head) {
                             continue;
                         }
-                        // clone state_points so nothing gets changed that shouldnt
                         let mut new_points = state_points.clone();
                         new_points[destination] = new_head;
-                        // If the recursion gives us a result then perfect return it, if not then
-                        // just go to next transition
+
                         if let Some(result) = recurse(new_head, p, p_consumed, f, destination as i32, new_points, collect, None, capture_groups, ended_groups) {
                             return Some(result);
-                        }
-                        else {
-                            continue;
                         }
                     }
                     Transition::Consume(color) => {
                         let head_color = p.get_point(head);
-                        // We never want to consume white, so if it's white don't waste our time
                         if head_color == WHITE || p_consumed.contains(&head){
                             continue;
                         }
-                        let mut new_collect = collect.clone();
-                        // We can safely unwrap because we know we have inserteed every used color
-                        let color_list = new_collect.get_mut(&color).unwrap();
 
+                        let mut new_collect = collect.clone();
+                        let color_list = new_collect.get_mut(&color).unwrap();
                         color_list.push(head_color);
-                        // Sets it to white because we have collected it
+
                         let mut new_p_consumed = p_consumed.clone();
                         new_p_consumed.insert(head);
 
-                        // Update capture groups
                         let mut new_capture = vec![];
                         capture_groups.iter().for_each(|(x, c)| {new_capture.push((*x, c + 1))});
-                        // If when we consume and the capture group is bigger than an existing
-                        // ended capture group then it cant work
                         for (x,c) in new_capture.iter() {
                             if let Some(result) = ended_groups.get(x) {
                                 if *c > *result {
@@ -115,20 +100,15 @@ impl Fsm {
                                 }
                             }
                         }
-                        // If the recursion gives us a result then perfect return it, if not then
-                        // just go to next transition
+
                         if let Some(result) = recurse(head, p, &new_p_consumed, f, destination as i32, state_points.clone(), &new_collect, None, &new_capture, ended_groups) {
                             return Some(result);
                         }
                     }
                     Transition::Epsilon => {
-                        // If the last transition was an epsilon
+                        // Avoids infinite loop
                         if let Some(eps) = epsilon {
-                            // And if we are going back to that transition
-                            if eps == destination as i32 {
-                                // Then just return none to avoid infinite loop
-                                continue;
-                            }
+                            if eps == destination as i32 {continue}
                         }
                         if let Some(result) = recurse(head, p, p_consumed, f, destination as i32, state_points.clone(), collect, Some(state_index), capture_groups, ended_groups) {
                             return Some(result);
@@ -145,14 +125,13 @@ impl Fsm {
                         let mut new_capture = capture_groups.clone();
                         new_capture.retain(|(x, _)| {*x == g});
                         let c = new_capture[0].1;
+
                         let mut new_ended = ended_groups.clone();
-                        // If there already has been an ended see if it equals
                         if let Some(result) = ended_groups.get(&g) {
                             if *result != c {
                                 continue;
                             }
                         }
-                        // If there isn't already an ended, add an ended
                         else {
                             new_ended.insert(g, c);
                         }
@@ -165,7 +144,6 @@ impl Fsm {
                     }
                 }
             }
-            // If none of those transitiions work 
             None
         }
 
@@ -175,7 +153,6 @@ impl Fsm {
             collect.insert(*k, vec![]);
         });
 
-        // Get function color
         let func_color = self.colors.iter().find_map(|(key, &value)| if value == ColorType::Function {Some(key)} else {None}).unwrap();
         
         // Find toppest leftest function color
@@ -188,17 +165,12 @@ impl Fsm {
                 }
             }
         }
-        // If there is no function color found it's automatically invalid
-        if head_pos.x == -1 || head_pos.y == -1 {
-            return None;
-        }
+        if head_pos.x == -1 || head_pos.y == -1 {return None}
 
-        // The entry point for each state
         let mut state_points = vec![Point::from(0, 0); self.states.len()];
-        // Make sure to put in where you're entering!
         state_points[0] = head_pos;
 
-        recurse(head_pos, &p, &HashSet::new(), self, 0, state_points.clone(), &collect, None, &vec![], &HashMap::new())
+        recurse(head_pos, p, &HashSet::new(), self, 0, state_points.clone(), &collect, None, &vec![], &HashMap::new())
     }
 
     pub fn print(&self) {
