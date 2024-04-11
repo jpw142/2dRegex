@@ -1,5 +1,7 @@
+use std::fs;
 use crate::Color;
 use crate::Picture;
+use crate::Fsm;
 
 /// List of built in operations
 /// For all Binary Operations structure is:
@@ -20,5 +22,10 @@ struct Node {
 }
 
 pub fn tokenize(p: &Picture) {
-    
+    let mut start = Fsm::builder(&Picture::open_pic("./builtin/FStart.png"))
+        .add_input(Color::from(0, 148, 255))
+        .add_output(Color::from(178, 0, 255))
+        .build();
+
+    print!("{:?}", start.identify(p));
 }

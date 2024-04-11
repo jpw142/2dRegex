@@ -44,7 +44,7 @@ pub struct Fsm {
 
 impl Fsm {
     /// Attempts to identify a picture
-    pub fn identify(&self, p: &Picture) -> Option<HashMap<Color, Vec<Color>>> {
+    pub fn identify(&self, p: &Picture) -> Option<HashMap<Color, Vec<Point>>> {
         fn recurse(
             head: Point, 
             p: &Picture, 
@@ -52,11 +52,11 @@ impl Fsm {
             f: &Fsm, 
             state_index: i32, 
             mut state_points: Vec<Point>, 
-            collect: &HashMap<Color, Vec<Color>>, 
+            collect: &HashMap<Color, Vec<Point>>, 
             epsilon: Option<i32>,
             capture_groups: &Vec<(u8, i32)>,
             ended_groups: &HashMap<u8, i32>
-            ) -> Option<HashMap<Color, Vec<Color>>> {
+            ) -> Option<HashMap<Color, Vec<Point>>> {
 
             let cur_state = f.states[state_index as usize].clone();
             state_points[state_index as usize] = head;
@@ -84,7 +84,7 @@ impl Fsm {
 
                         let mut new_collect = collect.clone();
                         let color_list = new_collect.get_mut(&color).unwrap();
-                        color_list.push(head_color);
+                        color_list.push(head);
 
                         let mut new_p_consumed = p_consumed.clone();
                         new_p_consumed.insert(head);
@@ -140,7 +140,7 @@ impl Fsm {
             None
         }
 
-        let mut collect: HashMap<Color, Vec<Color>> = HashMap::new();
+        let mut collect: HashMap<Color, Vec<Point>> = HashMap::new();
         self.colors.keys().for_each(|k| {
             collect.insert(*k, vec![]);
         });
@@ -289,12 +289,16 @@ impl FSMBuilder {
         // ... 0[Capture], 1[Epsilon(3), MoveRel(pos)], 2[Consume(c)], 3[Epsilon(2), Capture], 4[]
     }
     
-    pub fn add_input(&mut self, c: Color) {
+    /// Adds input color to fsm builder
+    pub fn add_input(&mut self, c: Color) -> &mut FSMBuilder {
         self.colors.insert(c, ColorType::Input);
+        return self;
     }
 
-    pub fn add_output(&mut self, c: Color) {
+    /// Adds output color to fsm builder
+    pub fn add_output(&mut self, c: Color) -> &mut FSMBuilder {
         self.colors.insert(c, ColorType::Output);
+        return self;
     }
     
     /// Identifies if a selected color is significant to finite state machine
@@ -302,13 +306,12 @@ impl FSMBuilder {
         return self.colors.get_key_value(&c);
     }
 
-    pub fn build(mut self) -> Fsm {
+    pub fn build(&mut self) -> Fsm {
         self.recurse(true);
         let fsm = Fsm {
             states: std::mem::take(&mut self.states),
             colors: std::mem::take(&mut self.colors),
         };
-        drop(self);
         return fsm;
     }
 

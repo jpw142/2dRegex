@@ -3,6 +3,7 @@ mod tokenizer;
 use tokenizer::picture::Picture;
 use tokenizer::fsm::Fsm;
 use tokenizer::picture::Color;
+use tokenizer::tokenizer::tokenize;
 
 fn main() {
     //let picture = Picture::open_pic("test.png");
@@ -18,5 +19,7 @@ fn main() {
     fsm.add_input(Color::from(255, 0, 0));
     let f = fsm.build();
     f.print();
-    print!("{:?}", f.identify(&picture3));
+    //print!("{:?}", f.identify(&picture3));
+    //let picture = Picture::open_pic("identifytest.png");
+    //tokenize(&picture);
 }
