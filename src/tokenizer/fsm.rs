@@ -43,6 +43,7 @@ pub struct Fsm {
 }
 
 impl Fsm {
+    /// Attempts to identify a picture
     pub fn identify(&self, p: &Picture) -> Option<HashMap<Color, Vec<Color>>> {
         fn recurse(
             head: Point, 
@@ -68,9 +69,8 @@ impl Fsm {
                 match transition {
                     Transition::MoveRelative(rel_state, direction) => {
                         let new_head = state_points[rel_state] + direction;
-                        if !p.in_bounds(new_head) {
-                            continue;
-                        }
+                        if !p.in_bounds(new_head) {continue}
+
                         let mut new_points = state_points.clone();
                         new_points[destination] = new_head;
 
@@ -80,9 +80,7 @@ impl Fsm {
                     }
                     Transition::Consume(color) => {
                         let head_color = p.get_point(head);
-                        if head_color == WHITE || p_consumed.contains(&head){
-                            continue;
-                        }
+                        if head_color == WHITE || head_color == GREEN || p_consumed.contains(&head) {continue}
 
                         let mut new_collect = collect.clone();
                         let color_list = new_collect.get_mut(&color).unwrap();
@@ -95,9 +93,7 @@ impl Fsm {
                         capture_groups.iter().for_each(|(x, c)| {new_capture.push((*x, c + 1))});
                         for (x,c) in new_capture.iter() {
                             if let Some(result) = ended_groups.get(x) {
-                                if *c > *result {
-                                    continue;
-                                }
+                                if *c > *result {continue}
                             }
                         }
 
@@ -128,9 +124,7 @@ impl Fsm {
 
                         let mut new_ended = ended_groups.clone();
                         if let Some(result) = ended_groups.get(&g) {
-                            if *result != c {
-                                continue;
-                            }
+                            if *result != c {continue}
                         }
                         else {
                             new_ended.insert(g, c);
@@ -140,7 +134,6 @@ impl Fsm {
                         if let Some(result) = recurse(head, p, p_consumed, f, destination as i32, state_points.clone(), collect, Some(state_index), &new_capture, &new_ended) {
                             return Some(result);
                         }
-
                     }
                 }
             }
@@ -177,7 +170,6 @@ impl Fsm {
             println!("{}: {:?}", i, self.states[i]);
         }
     }
-
 
     pub fn builder(p: &Picture) -> FSMBuilder {
         let mut new_p = p.clone();
@@ -333,9 +325,7 @@ impl FSMBuilder {
 
         for pos in SURROUNDING {
             let next_position = head_pos + pos;
-            if !self.p.in_bounds(next_position) {
-                continue;
-            }
+            if !self.p.in_bounds(next_position) {continue}
 
             let cur_color = self.p.get(next_position.x, next_position.y);
 
@@ -371,9 +361,7 @@ impl FSMBuilder {
                 }
             }
             // If we don't care about the color of the surrounding pixel go to the next one
-            else if self.color(cur_color).is_none() {
-                continue;
-            }
+            else if self.color(cur_color).is_none() {continue}
             // NORMAL CASE:
             else {
                 self.move_rel(Some(cur_state), pos);
