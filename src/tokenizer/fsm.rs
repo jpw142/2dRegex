@@ -269,9 +269,11 @@ impl FSMBuilder {
     // Ex loop group 8 and keep heading (0,1) {up}
     fn loop_please(&mut self, p: Point, c: Color, g: u8) {
         // Start Capture -> Epsilon(3)/MoveRel -> Consume -> End Capture/Epsilon(1)
-    
+        
         self.start_capture(g);
-        // ... 0[Capture], 1[]
+        let len = self.states.len();
+        self.states[len - 2].t.push((len + 3, Transition::Epsilon));
+        // ... 0[Capture, Epsilon to 4], 1[]
 
         let len = self.states.len();
         self.move_rel(Some(len - 1), p);
